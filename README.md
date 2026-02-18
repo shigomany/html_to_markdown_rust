@@ -34,7 +34,7 @@ Add this to your package's `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  html_to_markdown_rust: ^1.0.0
+  html_to_markdown_rust: ^0.1.2
 ```
 
 Then run:

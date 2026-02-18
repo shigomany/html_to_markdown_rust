@@ -1,3 +1,7 @@
+## 0.1.2
+
+- Fixed version at README.md.
+
 ## 0.1.1
 
 - Updated links in README.md.
