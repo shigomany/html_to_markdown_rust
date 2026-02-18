@@ -6,8 +6,8 @@ void main() {
   print(
     '\n╔══════════════════════════════════════════════════════════════════╗',
   );
-  print('║           HTML to Markdown Benchmark Comparison                 ║');
-  print('║     html_to_markdown_rust vs html2md                             ║');
+  print('║           HTML to Markdown Benchmark Comparison                  ║');
+  print('║             html_to_markdown_rust vs html2md                     ║');
   print(
     '╚══════════════════════════════════════════════════════════════════╝\n',
   );
@@ -117,7 +117,7 @@ void printResultsTable(List<BenchmarkResult> results) {
     '│ Test Case               │ HTML Size│ html_to_markdown_│                  │           │',
   );
   print(
-    '│                         │ (bytes)  │      rust        │     html2md       │  Speedup  │',
+    '│                         │ (bytes)  │      rust        │     html2md      │  Speedup  │',
   );
   print(
     '│                         │          │ (μs/op)          │ (μs/op)          │           │',
@@ -127,11 +127,11 @@ void printResultsTable(List<BenchmarkResult> results) {
   );
 
   for (final result in results) {
-    final name = result.name.padRight(23);
-    final size = _formatBytes(result.htmlSize).padRight(8);
-    final rustTime = _formatTime(result.rustScore).padRight(16);
-    final html2mdTime = _formatTime(result.html2mdScore).padRight(16);
-    final speedup = _formatSpeedup(result.speedup).padRight(9);
+    final name = result.name.padRight(24);
+    final size = _formatBytes(result.htmlSize).padRight(9);
+    final rustTime = _formatTime(result.rustScore).padRight(17);
+    final html2mdTime = _formatTime(result.html2mdScore).padRight(17);
+    final speedup = _formatSpeedup(result.speedup).padRight(10);
     print('│ $name│ $size│ $rustTime│ $html2mdTime│ $speedup│');
   }
 
