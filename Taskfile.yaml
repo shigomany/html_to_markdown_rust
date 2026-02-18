@@ -1,0 +1,39 @@
+version: '3'
+
+tasks:
+  # Build tasks
+  build_rust:
+    desc: "Build Rust library"
+    dir: rust
+    cmds:
+      - cargo build --release
+
+  gen_ffi:
+    desc: "Generate FFI bindings"
+    cmds:
+      - dart run ffigen --config ffigen.yaml
+
+  test:
+    desc: "Run Dart tests"
+    cmds:
+      - "{{.DART}} test"
+  
+  benchmark:
+    desc: Run all HTML to Markdown benchmarks
+    dir: benchmark
+    cmds:
+      - dart pub get
+      - dart run main.dart
+
+  benchmark:setup:
+    desc: Install benchmark dependencies
+    dir: benchmark
+    cmds:
+      - dart pub get
+
+  benchmark:clean:
+    desc: Clean benchmark build artifacts
+    dir: benchmark
+    cmds:
+      - rm -rf .dart_tool/
+      - rm -rf build/

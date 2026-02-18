@@ -1,0 +1,21 @@
+name: HtmlToMarkdownRust
+description: C bindings to the html_to_markdown_rs
+ffi-native:
+language: c
+headers:
+  entry-points:
+    - "rust/include/bindings.h"
+compiler-opts:
+  # Suppress nullability warnings on macOS
+  - "-Wno-nullability-completeness"
+  # Ignore warnings about availability macro
+  - "-Wno-availability"
+output:
+  bindings: "lib/src/bindings.g.dart"
+exclude-all-by-default: true
+structs:
+  include:
+    - "Wrapped.*"
+functions:
+  include:
+    - "htm_.*"
