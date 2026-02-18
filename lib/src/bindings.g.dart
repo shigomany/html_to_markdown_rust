@@ -12,5 +12,48 @@ external ffi.Pointer<ffi.Char> htm_convert(
   int len,
 );
 
+@ffi.Native<
+  ffi.Pointer<ffi.Char> Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.UintPtr,
+    ffi.Pointer<ffi.Char>,
+  )
+>()
+external ffi.Pointer<ffi.Char> htm_convert_with_options(
+  ffi.Pointer<ffi.Char> input,
+  int len,
+  ffi.Pointer<ffi.Char> optionsJson,
+);
+
+@ffi.Native<
+  ffi.Pointer<ffi.Char> Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.UintPtr,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  )
+>()
+external ffi.Pointer<ffi.Char> htm_convert_with_metadata(
+  ffi.Pointer<ffi.Char> input,
+  int len,
+  ffi.Pointer<ffi.Char> optionsJson,
+  ffi.Pointer<ffi.Char> metadataConfigJson,
+);
+
+@ffi.Native<
+  ffi.Pointer<ffi.Char> Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.UintPtr,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  )
+>()
+external ffi.Pointer<ffi.Char> htm_convert_with_inline_images(
+  ffi.Pointer<ffi.Char> input,
+  int len,
+  ffi.Pointer<ffi.Char> optionsJson,
+  ffi.Pointer<ffi.Char> imageConfigJson,
+);
+
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Char>)>()
 external void htm_free_string(ffi.Pointer<ffi.Char> s);

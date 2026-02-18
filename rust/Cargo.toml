@@ -7,7 +7,9 @@ edition = "2024"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-html-to-markdown-rs = "2.25.1"
+html-to-markdown-rs = { version = "2.25.1", features = ["serde", "metadata", "inline-images"] }
+serde_json = "1.0"
+base64 = "0.22"
 
 [build-dependencies]
 build-target = "0.8.0"

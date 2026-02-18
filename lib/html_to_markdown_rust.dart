@@ -14,6 +14,69 @@
 ///   print(markdown);
 /// }
 /// ```
+///
+/// ## With Options
+///
+/// ```dart
+/// final options = ConversionOptions(
+///   headingStyle: HeadingStyle.atx,
+///   bullets: '*',
+///   skipImages: true,
+/// );
+/// final markdown = htmlToMarkdown(html, options);
+/// ```
+///
+/// ## With Metadata Extraction
+///
+/// ```dart
+/// final result = htmlToMarkdownWithMetadata(
+///   html,
+///   options: ConversionOptions(),
+///   metadataConfig: MetadataConfig(),
+/// );
+/// print(result.markdown);
+/// print(result.metadata?.title);
+/// ```
+///
+/// ## With Inline Images Extraction
+///
+/// ```dart
+/// final result = htmlToMarkdownWithInlineImages(
+///   html,
+///   imageConfig: InlineImageConfig(maxDecodedSizeBytes: 10 * 1024 * 1024),
+/// );
+/// print(result.markdown);
+/// for (final img in result.inlineImages) {
+///   print('Image: ${img.filename}, format: ${img.format}');
+/// }
+/// ```
 library;
 
-export 'src/html_to_markdown.dart' show htmlToMarkdown;
+export 'src/html_to_markdown.dart'
+    show
+        htmlToMarkdown,
+        htmlToMarkdownWithMetadata,
+        htmlToMarkdownWithInlineImages;
+export 'src/conversion_options.dart'
+    show
+        ConversionOptions,
+        MetadataConfig,
+        DocumentMetadata,
+        LinkMetadata,
+        ImageMetadata,
+        HeaderMetadata,
+        HeadingStyle,
+        ListIndentType,
+        CodeBlockStyle,
+        NewlineStyle,
+        HighlightStyle,
+        WhitespaceMode,
+        PreprocessingPreset,
+        PreprocessingOptions,
+        ConversionResult,
+        InlineImageConfig,
+        InlineImage,
+        InlineImageFormat,
+        InlineImageSource,
+        InlineImageWarning,
+        InlineImagesResult;

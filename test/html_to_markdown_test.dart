@@ -305,4 +305,242 @@ void main() {
       });
     });
   });
+
+  group('htmlToMarkdownWithMetadata', () {
+    test('extracts title from HTML', () {
+      final html = '''
+        <html>
+          <head><title>Test Page Title</title></head>
+          <body><h1>Hello</h1></body>
+        </html>
+      ''';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(extractTitle: true),
+      );
+      expect(result.markdown, contains('# Hello'));
+      expect(result.metadata?.title, equals('Test Page Title'));
+    });
+
+    test('extracts headers from HTML', () {
+      final html = '''
+        <h1>Main Title</h1>
+        <h2>Section 1</h2>
+        <h3>Subsection</h3>
+      ''';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(extractHeaders: true),
+      );
+      expect(result.metadata?.headers, isNotNull);
+      expect(result.metadata?.headers?.length, equals(3));
+      expect(result.metadata?.headers?[0].level, equals(1));
+      expect(result.metadata?.headers?[0].text, equals('Main Title'));
+      expect(result.metadata?.headers?[1].level, equals(2));
+      expect(result.metadata?.headers?[2].level, equals(3));
+    });
+
+    test('extracts links from HTML', () {
+      final html = '''
+        <p>
+          <a href="https://example.com">Example</a>
+          <a href="https://test.org/page">Test Page</a>
+        </p>
+      ''';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(extractLinks: true),
+      );
+      expect(result.metadata?.links, isNotNull);
+      expect(result.metadata?.links?.length, equals(2));
+      expect(result.metadata?.links?[0].href, equals('https://example.com'));
+      expect(result.metadata?.links?[0].text, equals('Example'));
+      expect(result.metadata?.links?[1].href, equals('https://test.org/page'));
+    });
+
+    test('extracts images from HTML', () {
+      final html = '''
+        <img src="image1.jpg" alt="First image">
+        <img src="image2.png" alt="Second image">
+      ''';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(extractImages: true),
+      );
+      expect(result.metadata?.images, isNotNull);
+      expect(result.metadata?.images?.length, equals(2));
+      expect(result.metadata?.images?[0].src, equals('image1.jpg'));
+      expect(result.metadata?.images?[0].alt, equals('First image'));
+      expect(result.metadata?.images?[1].src, equals('image2.png'));
+    });
+
+    test('extracts description from meta tag', () {
+      final html = '''
+        <html>
+          <head>
+            <meta name="description" content="This is a test description">
+          </head>
+          <body><p>Content</p></body>
+        </html>
+      ''';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(extractDescription: true),
+      );
+      expect(
+        result.metadata?.description,
+        equals('This is a test description'),
+      );
+    });
+
+    test('works with custom conversion options', () {
+      final html = '<h1>Title</h1><img src="test.jpg">';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        options: ConversionOptions(skipImages: true),
+        metadataConfig: MetadataConfig(extractHeaders: true),
+      );
+      expect(result.markdown, contains('# Title'));
+      expect(result.markdown, isNot(contains('test.jpg')));
+      expect(result.metadata?.headers?.first.text, equals('Title'));
+    });
+
+    test('handles empty HTML', () {
+      final html = '';
+      final result = htmlToMarkdownWithMetadata(
+        html,
+        metadataConfig: MetadataConfig(),
+      );
+      expect(result.markdown, isEmpty);
+    });
+  });
+
+  group('htmlToMarkdownWithInlineImages', () {
+    test('extracts inline images from data URIs', () {
+      final html = '''
+        <p>Text before</p>
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Tiny image">
+        <p>Text after</p>
+      ''';
+      final result = htmlToMarkdownWithInlineImages(
+        html,
+        imageConfig: InlineImageConfig(maxDecodedSizeBytes: 1024 * 1024),
+      );
+      expect(result.markdown, contains('Text before'));
+      expect(result.markdown, contains('Text after'));
+      expect(result.inlineImages.length, greaterThanOrEqualTo(0));
+    });
+
+    test('returns empty list when no inline images', () {
+      final html = '''
+        <h1>Title</h1>
+        <p>Just text, no images</p>
+        <img src="external.jpg" alt="External image">
+      ''';
+      final result = htmlToMarkdownWithInlineImages(html);
+      expect(result.markdown, contains('# Title'));
+      expect(result.inlineImages, isEmpty);
+    });
+
+    test('works with custom conversion options', () {
+      final html = '''
+        <h1>Title</h1>
+        <p>Content</p>
+      ''';
+      final result = htmlToMarkdownWithInlineImages(
+        html,
+        options: ConversionOptions(bullets: '*'),
+      );
+      expect(result.markdown, contains('# Title'));
+    });
+
+    test('handles custom image config', () {
+      final html = '<p>No images here</p>';
+      final result = htmlToMarkdownWithInlineImages(
+        html,
+        imageConfig: InlineImageConfig(
+          maxDecodedSizeBytes: 10 * 1024 * 1024,
+          filenamePrefix: 'img_',
+          captureSvg: true,
+        ),
+      );
+      expect(result.markdown, contains('No images here'));
+      expect(result.inlineImages, isEmpty);
+      expect(result.warnings, isEmpty);
+    });
+
+    test('handles empty HTML', () {
+      final html = '';
+      final result = htmlToMarkdownWithInlineImages(html);
+      expect(result.markdown, isEmpty);
+      expect(result.inlineImages, isEmpty);
+    });
+
+    test('extracts inline SVG when enabled', () {
+      final html = '''
+        <p>Before SVG</p>
+        <svg width="100" height="100">
+          <circle cx="50" cy="50" r="40" fill="red"/>
+        </svg>
+        <p>After SVG</p>
+      ''';
+      final result = htmlToMarkdownWithInlineImages(
+        html,
+        imageConfig: InlineImageConfig(captureSvg: true),
+      );
+      expect(result.markdown, contains('Before SVG'));
+      expect(result.markdown, contains('After SVG'));
+    });
+  });
+
+  group('ConversionOptions', () {
+    test('skipImages option works', () {
+      final html = '<p>Text</p><img src="test.jpg" alt="image">';
+      final markdownWithImages = htmlToMarkdown(html);
+      final markdownWithoutImages = htmlToMarkdown(
+        html,
+        ConversionOptions(skipImages: true),
+      );
+      expect(markdownWithImages, contains('test.jpg'));
+      expect(markdownWithoutImages, isNot(contains('test.jpg')));
+    });
+
+    test('preserveTags option works', () {
+      final html =
+          '<p>Text</p><table><tr><td>Cell</td></tr></table><p>More</p>';
+      final markdown = htmlToMarkdown(
+        html,
+        ConversionOptions(preserveTags: ['table']),
+      );
+      expect(markdown, contains('Text'));
+      expect(markdown, contains('<table'));
+      expect(markdown, contains('</table>'));
+    });
+
+    test('custom bullets option works', () {
+      final html = '<ul><li>Item 1</li><li>Item 2</li></ul>';
+      final markdown = htmlToMarkdown(html, ConversionOptions(bullets: '*'));
+      expect(markdown, contains('* Item 1'));
+      expect(markdown, contains('* Item 2'));
+    });
+
+    test('preprocessing options work', () {
+      final html = '''
+        <nav>Navigation</nav>
+        <main><p>Content</p></main>
+        <form><input type="text"></form>
+      ''';
+      final markdown = htmlToMarkdown(
+        html,
+        ConversionOptions(
+          preprocessing: PreprocessingOptions(
+            enabled: true,
+            removeNavigation: true,
+            removeForms: true,
+          ),
+        ),
+      );
+      expect(markdown, contains('Content'));
+    });
+  });
 }
