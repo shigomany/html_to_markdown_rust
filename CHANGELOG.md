@@ -1,3 +1,9 @@
+## 0.1.1
+
+- Updated links in README.md.
+- Added dart doc comments for all public APIs.
+- Added example package.
+
 ## 0.1.0
 
 - Initial version.

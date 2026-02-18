@@ -5,6 +5,10 @@ import 'package:ffi/ffi.dart';
 import 'package:html_to_markdown_rust/src/bindings.g.dart';
 import 'package:html_to_markdown_rust/src/conversion_options.dart';
 
+/// Converts an HTML string to Markdown.
+///
+/// [html] is the HTML string to convert.
+/// [options] is the optional configuration for the conversion.
 String htmlToMarkdown(String html, [ConversionOptions? options]) {
   final htmlPointer = html.toNativeUtf8().cast<Char>();
 
@@ -36,6 +40,11 @@ Pointer<Char> _convertWithOptions(
   }
 }
 
+/// Converts an HTML string to Markdown and extracts metadata.
+///
+/// [html] is the HTML string to convert.
+/// [options] is the optional configuration for the conversion.
+/// [metadataConfig] is the optional configuration for metadata extraction.
 ConversionResult htmlToMarkdownWithMetadata(
   String html, {
   ConversionOptions? options,
@@ -81,6 +90,11 @@ ConversionResult htmlToMarkdownWithMetadata(
   }
 }
 
+/// Converts an HTML string to Markdown and extracts inline images.
+///
+/// [html] is the HTML string to convert.
+/// [options] is the optional configuration for the conversion.
+/// [imageConfig] is the optional configuration for inline image handling.
 InlineImagesResult htmlToMarkdownWithInlineImages(
   String html, {
   ConversionOptions? options,

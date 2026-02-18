@@ -280,10 +280,11 @@ This package is released under the MIT License. See the LICENSE file for details
 
 - Built with [html-to-markdown-rs](https://crates.io/crates/html-to-markdown-rs) Rust crate
 - Uses Dart's [FFI](https://dart.dev/guides/libraries/c-interop) for native interop
+- Hooks for build process: [hooks](https://dart.dev/tools/hooks)
 - Native library building handled by [native_toolchain_rust](https://pub.dev/packages/native_toolchain_rust)
 
 ## Support
 
 For issues, questions, or contributions:
-- GitHub Issues: https://github.com/your-org/html_to_markdown_rust/issues
-- Documentation: https://github.com/your-org/html_to_markdown_rust
+- GitHub Issues: https://github.com/shigomany/html_to_markdown_rust/issues
+- Documentation: https://github.com/shigomany/html_to_markdown_rust

@@ -1,6 +1,6 @@
 name: html_to_markdown_rust
-description: A high-performance Dart package for converting HTML to Markdown using Rust's html-to-markdown-rs library via FFI. Supports comprehensive HTML elements including headings, paragraphs, lists, links, images, tables, and more with memory-safe automatic cleanup.
-version: 0.1.0
+description: A high-performance Dart package for converting HTML to Markdown using Rust's html-to-markdown-rs library via FFI.
+version: 0.1.1
 homepage: https://github.com/shigomany/html_to_markdown_rust
 repository: https://github.com/shigomany/html_to_markdown_rust
 issue_tracker: https://github.com/shigomany/html_to_markdown_rust/issues
