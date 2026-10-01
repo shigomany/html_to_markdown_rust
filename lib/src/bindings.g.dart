@@ -16,6 +16,31 @@ external ffi.Pointer<ffi.Char> htm_convert(
   int len,
 );
 
+/// Convert HTML into a complete structured JSON result.
+///
+/// Optional image configuration enables extraction and overrides image options.
+/// Document structure and tables are collected only when requested in options.
+///
+/// # Safety
+/// `input` must reference `len` readable bytes; non-null JSON must be NUL-terminated.
+/// Free the result with `htm_free_string`.
+@ffi.Native<
+  ffi.Pointer<ffi.Char> Function(
+    ffi.Pointer<ffi.Char>,
+    ffi.UintPtr,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+    ffi.Pointer<ffi.Char>,
+  )
+>()
+external ffi.Pointer<ffi.Char> htm_convert_full(
+  ffi.Pointer<ffi.Char> input,
+  int len,
+  ffi.Pointer<ffi.Char> options_json,
+  ffi.Pointer<ffi.Char> metadata_config_json,
+  ffi.Pointer<ffi.Char> image_config_json,
+);
+
 /// Convert HTML and extract embedded images into a JSON result.
 ///
 /// # Safety

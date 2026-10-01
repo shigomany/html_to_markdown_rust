@@ -45,6 +45,22 @@ char *htm_convert_with_inline_images(const char *input,
                                      const char *image_config_json);
 
 /**
+ * Convert HTML into a complete structured JSON result.
+ *
+ * Optional image configuration enables extraction and overrides image options.
+ * Document structure and tables are collected only when requested in options.
+ *
+ * # Safety
+ * `input` must reference `len` readable bytes; non-null JSON must be NUL-terminated.
+ * Free the result with `htm_free_string`.
+ */
+char *htm_convert_full(const char *input,
+                       uintptr_t len,
+                       const char *options_json,
+                       const char *metadata_config_json,
+                       const char *image_config_json);
+
+/**
  * Release a string allocated by this library; a null pointer is accepted.
  *
  * # Safety

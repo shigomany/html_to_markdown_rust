@@ -1,6 +1,6 @@
 name: html_to_markdown_rust
-description: Rust-powered HTML to Markdown for Dart and Flutter, with configurable formatting, metadata extraction, embedded images, and automatic native builds.
-version: 0.2.0
+description: Rust-powered HTML to Markdown, Djot, or plain text for Dart and Flutter, with structured documents, tables, metadata, and embedded images.
+version: 0.3.0
 homepage: https://github.com/shigomany/html_to_markdown_rust
 repository: https://github.com/shigomany/html_to_markdown_rust
 issue_tracker: https://github.com/shigomany/html_to_markdown_rust/issues
