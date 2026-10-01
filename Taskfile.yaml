@@ -1,5 +1,8 @@
 version: '3'
 
+vars:
+  DART: dart
+
 tasks:
   # Build tasks
   build_rust:

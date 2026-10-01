@@ -39,6 +39,9 @@ enum NewlineStyle {
   trailingSpaces,
 
   /// Preserve newlines as is.
+  @Deprecated(
+    'The upstream engine has no preserve newline style; this maps to spaces.',
+  )
   preserve,
 }
 
@@ -51,6 +54,9 @@ enum HighlightStyle {
   htmlMark,
 
   /// Use single asterisk (*text*) for highlighting (often italic).
+  @Deprecated(
+    'The upstream engine has no asterisk highlight style; this maps to bold.',
+  )
   asterisk,
 }
 
@@ -95,16 +101,29 @@ class PreprocessingOptions {
   /// Whether to remove form elements (<form>).
   final bool removeForms;
 
-  /// Whether to remove script elements (<script>).
+  /// Retained for source compatibility.
+  ///
+  /// Script removal is fixed by the upstream sanitizer and cannot be configured.
+  @Deprecated('Unsupported by html-to-markdown-rs 3.x.')
   final bool removeScripts;
 
-  /// Whether to remove style elements (<style>).
+  /// Retained for source compatibility.
+  ///
+  /// Style removal is fixed by the upstream sanitizer and cannot be configured.
+  @Deprecated('Unsupported by html-to-markdown-rs 3.x.')
   final bool removeStyles;
 
-  /// Whether to remove comments (<!-- -->).
+  /// Retained for source compatibility.
+  ///
+  /// Comment removal is fixed by the upstream sanitizer and cannot be configured.
+  @Deprecated('Unsupported by html-to-markdown-rs 3.x.')
   final bool removeComments;
 
-  /// Whether to remove hidden elements (style="display: none", etc.).
+  /// Retained for source compatibility.
+  ///
+  /// Hidden-element removal is fixed by the upstream sanitizer and cannot be
+  /// configured.
+  @Deprecated('Unsupported by html-to-markdown-rs 3.x.')
   final bool removeHiddenElements;
 
   /// Creates a new [PreprocessingOptions] instance.
@@ -122,13 +141,14 @@ class PreprocessingOptions {
   /// Converts the options to a JSON map.
   Map<String, dynamic> toJson() => {
     'enabled': enabled,
-    'preset': preset.name,
-    'removeNavigation': removeNavigation,
-    'removeForms': removeForms,
-    'removeScripts': removeScripts,
-    'removeStyles': removeStyles,
-    'removeComments': removeComments,
-    'removeHiddenElements': removeHiddenElements,
+    'preset': switch (preset) {
+      // Upstream has no disabled preset. Minimal is the least aggressive value
+      // and `enabled` remains the authoritative switch.
+      PreprocessingPreset.none => 'minimal',
+      _ => preset.name,
+    },
+    'remove_navigation': removeNavigation,
+    'remove_forms': removeForms,
   };
 }
 
@@ -208,27 +228,43 @@ class ConversionOptions {
 
   /// Converts the options to a JSON map.
   Map<String, dynamic> toJson() => {
-    'headingStyle': headingStyle.name,
-    'listIndentWidth': listIndentWidth,
-    'listIndentType': listIndentType.name,
+    'heading_style': switch (headingStyle) {
+      HeadingStyle.atx => 'atx',
+      HeadingStyle.setext => 'underlined',
+    },
+    'list_indent_width': listIndentWidth,
+    'list_indent_type': listIndentType.name,
     'bullets': bullets,
-    'strongEmSymbol': strongEmSymbol,
-    'escapeAsterisks': escapeAsterisks,
-    'escapeUnderscores': escapeUnderscores,
-    'escapeMisc': escapeMisc,
-    'newlineStyle': newlineStyle.name,
-    'codeBlockStyle': codeBlockStyle.name,
-    'highlightStyle': highlightStyle.name,
-    'whitespaceMode': whitespaceMode.name,
-    'skipImages': skipImages,
-    'skipLinks': skipLinks,
-    'preserveTags': preserveTags,
-    'stripTags': stripTags,
+    'strong_em_symbol': strongEmSymbol,
+    'escape_asterisks': escapeAsterisks,
+    'escape_underscores': escapeUnderscores,
+    'escape_misc': escapeMisc,
+    'newline_style': switch (newlineStyle) {
+      NewlineStyle.backslash => 'backslash',
+      NewlineStyle.trailingSpaces || NewlineStyle.preserve => 'spaces',
+    },
+    'code_block_style': switch (codeBlockStyle) {
+      CodeBlockStyle.tilde => 'tildes',
+      _ => codeBlockStyle.name,
+    },
+    'highlight_style': switch (highlightStyle) {
+      HighlightStyle.doubleEqual => 'double_equal',
+      HighlightStyle.htmlMark => 'html',
+      HighlightStyle.asterisk => 'bold',
+    },
+    'whitespace_mode': switch (whitespaceMode) {
+      WhitespaceMode.preserve => 'strict',
+      WhitespaceMode.normalize || WhitespaceMode.condense => 'normalized',
+    },
+    'skip_images': skipImages,
+    'skip_links': skipLinks,
+    'preserve_tags': preserveTags,
+    'strip_tags': stripTags,
     'preprocessing': preprocessing.toJson(),
   };
 
   /// Converts the options to a JSON string.
-  String toJsonString() => toJson().toString();
+  String toJsonString() => jsonEncode(toJson());
 }
 
 /// Configuration for metadata extraction.
@@ -255,6 +291,8 @@ class MetadataConfig {
   final bool extractStructuredData;
 
   /// Maximum size for structured data in bytes.
+  ///
+  /// Accepted values are from 0 through 1,000,000, inclusive.
   final int maxStructuredDataSize;
 
   /// Creates a new [MetadataConfig] instance.
@@ -266,20 +304,31 @@ class MetadataConfig {
     this.extractLinks = true,
     this.extractImages = true,
     this.extractStructuredData = true,
-    this.maxStructuredDataSize = 1048576,
+    this.maxStructuredDataSize = 1000000,
   });
 
   /// Converts the config to a JSON map.
-  Map<String, dynamic> toJson() => {
-    'extractTitle': extractTitle,
-    'extractDescription': extractDescription,
-    'extractKeywords': extractKeywords,
-    'extractHeaders': extractHeaders,
-    'extractLinks': extractLinks,
-    'extractImages': extractImages,
-    'extractStructuredData': extractStructuredData,
-    'maxStructuredDataSize': maxStructuredDataSize,
-  };
+  Map<String, dynamic> toJson() {
+    if (maxStructuredDataSize < 0 || maxStructuredDataSize > 1000000) {
+      throw RangeError.range(
+        maxStructuredDataSize,
+        0,
+        1000000,
+        'maxStructuredDataSize',
+      );
+    }
+
+    return {
+      'extract_title': extractTitle,
+      'extract_description': extractDescription,
+      'extract_keywords': extractKeywords,
+      'extract_headers': extractHeaders,
+      'extract_links': extractLinks,
+      'extract_images': extractImages,
+      'extract_structured_data': extractStructuredData,
+      'max_structured_data_size': maxStructuredDataSize,
+    };
+  }
 }
 
 /// Metadata about a link found in the document.
@@ -313,7 +362,9 @@ class LinkMetadata {
     href: json['href'] as String?,
     text: json['text'] as String?,
     title: json['title'] as String?,
-    isExternal: json['is_external'] as bool? ?? false,
+    isExternal:
+        json['link_type'] == 'external' ||
+        (json['is_external'] as bool? ?? false),
     isImage: json['is_image'] as bool? ?? false,
   );
 }
@@ -345,13 +396,16 @@ class ImageMetadata {
   });
 
   /// Creates an [ImageMetadata] instance from a JSON map.
-  factory ImageMetadata.fromJson(Map<String, dynamic> json) => ImageMetadata(
-    src: json['src'] as String?,
-    alt: json['alt'] as String?,
-    title: json['title'] as String?,
-    width: json['width'] as int?,
-    height: json['height'] as int?,
-  );
+  factory ImageMetadata.fromJson(Map<String, dynamic> json) {
+    final dimensions = json['dimensions'] as Map<String, dynamic>?;
+    return ImageMetadata(
+      src: json['src'] as String?,
+      alt: json['alt'] as String?,
+      title: json['title'] as String?,
+      width: (dimensions?['width'] ?? json['width']) as int?,
+      height: (dimensions?['height'] ?? json['height']) as int?,
+    );
+  }
 }
 
 /// Metadata about a header found in the document.
@@ -416,10 +470,35 @@ class DocumentMetadata {
 
     List<Map<String, dynamic>>? parseStructuredData(dynamic data) {
       if (data == null) return null;
-      if (data is List) {
-        return data.map((e) => e as Map<String, dynamic>).toList();
+      final parsed = <Map<String, dynamic>>[];
+
+      void addDecoded(dynamic value) {
+        if (value is Map) {
+          parsed.add(Map<String, dynamic>.from(value));
+        } else if (value is List) {
+          for (final item in value) {
+            if (item is Map) parsed.add(Map<String, dynamic>.from(item));
+          }
+        }
       }
-      return null;
+
+      if (data is List) {
+        for (final entry in data) {
+          if (entry is Map && entry['raw_json'] is String) {
+            try {
+              addDecoded(jsonDecode(entry['raw_json'] as String));
+            } on FormatException {
+              // Ignore malformed structured-data entries without dropping
+              // valid entries returned alongside them.
+            }
+          } else {
+            addDecoded(entry);
+          }
+        }
+      } else {
+        addDecoded(data);
+      }
+      return parsed;
     }
 
     return DocumentMetadata(
@@ -478,10 +557,10 @@ class InlineImageConfig {
 
   /// Converts the config to a JSON map.
   Map<String, dynamic> toJson() => {
-    'maxDecodedSizeBytes': maxDecodedSizeBytes,
-    if (filenamePrefix != null) 'filenamePrefix': filenamePrefix,
-    'captureSvg': captureSvg,
-    'inferDimensions': inferDimensions,
+    'max_decoded_size_bytes': maxDecodedSizeBytes,
+    if (filenamePrefix != null) 'filename_prefix': filenamePrefix,
+    'capture_svg': captureSvg,
+    'infer_dimensions': inferDimensions,
   };
 }
 
@@ -562,7 +641,7 @@ class InlineImage {
   /// Creates an [InlineImage] instance from a JSON map.
   factory InlineImage.fromJson(Map<String, dynamic> json) {
     final formatStr = json['format'] as String? ?? 'Unknown';
-    final sourceStr = json['source'] as String? ?? 'DataUri';
+    final sourceStr = json['source'] as String? ?? 'img_data_uri';
 
     InlineImageFormat parseFormat(String s) {
       return InlineImageFormat.values.firstWhere(
@@ -572,10 +651,11 @@ class InlineImage {
     }
 
     InlineImageSource parseSource(String s) {
-      return InlineImageSource.values.firstWhere(
-        (e) => e.name.toLowerCase() == s.toLowerCase(),
-        orElse: () => InlineImageSource.dataUri,
-      );
+      return switch (s.toLowerCase()) {
+        'svg_element' || 'svgelement' => InlineImageSource.svgElement,
+        'img_data_uri' || 'data_uri' || 'datauri' => InlineImageSource.dataUri,
+        _ => InlineImageSource.dataUri,
+      };
     }
 
     final dims = json['dimensions'] as Map<String, dynamic>?;

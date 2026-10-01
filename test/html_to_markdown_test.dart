@@ -229,7 +229,7 @@ void main() {
       test('handles whitespace only', () {
         final html = '   \n\t   ';
         final markdown = htmlToMarkdown(html);
-        expect(markdown, isNotEmpty);
+        expect(markdown, isEmpty);
       });
 
       test('handles HTML with special characters', () {
