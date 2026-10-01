@@ -1,3 +1,24 @@
+## 0.3.0
+
+- Added `convertHtml`, a unified conversion API that can return converted text,
+  a typed document tree, span-aware tables, rich metadata, inline images, and
+  non-fatal `ProcessingWarning` values in one pass.
+- Added Markdown, Djot, and plain-text output selection plus base-URL
+  resolution, reference links, CSS selector exclusion, compact tables, and
+  other Rust `3.15.1` conversion options.
+- Added typed document nodes, span-aware table models, and models for UTF-8
+  byte-range annotations. The Rust `3.15.1` structure collector currently
+  leaves annotations empty and can include inline Markdown in node text. Table
+  collection requires `includeDocumentStructure: true`; plain-text input can
+  take a fast path that omits the document tree in any output format.
+- Corrected structured table coordinates across row-spanning cells returned by
+  Rust `3.15.1`, consistently in document nodes and extracted tables.
+- Expanded metadata with author, canonical and base URLs, language, text
+  direction, Open Graph, Twitter Card, classified links and images, custom meta
+  tags, and typed structured-data entries.
+- Preserved `htmlToMarkdown`, `htmlToMarkdownWithMetadata`, and
+  `htmlToMarkdownWithInlineImages` for existing callers.
+
 ## 0.2.0
 
 - Updated the Rust converter from `html-to-markdown-rs 2.25.1` to `3.15.1`

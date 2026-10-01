@@ -7,6 +7,9 @@ enum HeadingStyle {
 
   /// Setext style underlines (e.g. Heading\n=======)
   setext,
+
+  /// ATX style with closing hashtags (e.g. # Heading #).
+  atxClosed,
 }
 
 /// Type of indentation for lists.
@@ -58,6 +61,51 @@ enum HighlightStyle {
     'The upstream engine has no asterisk highlight style; this maps to bold.',
   )
   asterisk,
+
+  /// Render highlighted text as bold.
+  bold,
+
+  /// Remove highlight markup while preserving its text.
+  none,
+}
+
+/// Target format for converted output.
+enum OutputFormat {
+  /// CommonMark-compatible Markdown.
+  markdown,
+
+  /// Djot lightweight markup.
+  djot,
+
+  /// Visible text without markup.
+  plain,
+}
+
+/// Style used to render links.
+enum LinkStyle {
+  /// Render each link with its destination inline.
+  inline,
+
+  /// Render links using numbered reference definitions.
+  reference,
+}
+
+/// Strategy used to escape link and image destinations.
+enum UrlEscapeStyle {
+  /// Wrap destinations containing whitespace in angle brackets.
+  angle,
+
+  /// Percent-encode characters outside the safe URL set.
+  percent,
+}
+
+/// Conversion engine strategy.
+enum TierStrategy {
+  /// Select the fastest compatible conversion tier automatically.
+  auto,
+
+  /// Always use the full DOM-walking conversion tier.
+  tier2,
 }
 
 /// Mode for handling white spaces.
@@ -178,6 +226,24 @@ class ConversionOptions {
   /// Whether to escape miscellaneous characters.
   final bool escapeMisc;
 
+  /// Whether to escape ASCII characters with special markup meaning.
+  final bool escapeAscii;
+
+  /// Default language for fenced code blocks without a language hint.
+  final String codeLanguage;
+
+  /// Whether links whose label equals their absolute URI use `<URI>` syntax.
+  final bool autolinks;
+
+  /// Whether a URL-labeled link without a title uses its URL as the title.
+  final bool defaultTitle;
+
+  /// Whether line breaks inside table cells are retained.
+  final bool brInTables;
+
+  /// Whether tables omit alignment padding.
+  final bool compactTables;
+
   /// The style to use for newlines.
   final NewlineStyle newlineStyle;
 
@@ -187,14 +253,76 @@ class ConversionOptions {
   /// The style to use for text highlighting.
   final HighlightStyle highlightStyle;
 
+  /// Whether document metadata is extracted during conversion.
+  final bool extractMetadata;
+
   /// How to handle whitespace.
   final WhitespaceMode whitespaceMode;
+
+  /// Whether all newlines are removed from the converted output.
+  final bool stripNewlines;
+
+  /// Whether long output lines are wrapped.
+  final bool wrap;
+
+  /// Maximum line width when [wrap] is enabled. Zero disables the limit.
+  final int wrapWidth;
+
+  /// Whether the entire document is converted as inline content.
+  final bool convertAsInline;
+
+  /// Markdown notation used for subscript text.
+  final String subSymbol;
+
+  /// Markdown notation used for superscript text.
+  final String supSymbol;
+
+  /// Tags whose child images remain inline.
+  final List<String> keepInlineImagesIn;
 
   /// Whether to skip images in the output.
   final bool skipImages;
 
   /// Whether to skip links in the output.
   final bool skipLinks;
+
+  /// Target output format.
+  final OutputFormat outputFormat;
+
+  /// Link rendering style.
+  final LinkStyle linkStyle;
+
+  /// URL destination escaping style.
+  final UrlEscapeStyle urlEscapeStyle;
+
+  /// Whether the result includes the structured document tree.
+  final bool includeDocumentStructure;
+
+  /// Whether inline image payloads are extracted during conversion.
+  final bool extractImages;
+
+  /// Maximum decoded inline image size in bytes.
+  final int maxImageSize;
+
+  /// Whether inline SVG elements are captured as images.
+  final bool captureSvg;
+
+  /// Whether image dimensions are inferred from image data.
+  final bool inferDimensions;
+
+  /// Maximum DOM traversal depth, or `null` for the native safe default.
+  ///
+  /// The native engine may clamp large values to its platform safety limit.
+  final int? maxDepth;
+
+  /// CSS selectors whose matching elements and descendants are excluded.
+  final List<String> excludeSelectors;
+
+  /// Base URL used to resolve relative link and image destinations.
+  final String? baseUrl;
+
+  /// Conversion engine strategy.
+  final TierStrategy tierStrategy;
 
   /// List of tags to preserve as HTML.
   final List<String> preserveTags;
@@ -215,53 +343,132 @@ class ConversionOptions {
     this.escapeAsterisks = false,
     this.escapeUnderscores = false,
     this.escapeMisc = false,
+    this.escapeAscii = false,
+    this.codeLanguage = '',
+    this.autolinks = true,
+    this.defaultTitle = false,
+    this.brInTables = false,
+    this.compactTables = false,
     this.newlineStyle = NewlineStyle.backslash,
     this.codeBlockStyle = CodeBlockStyle.backticks,
     this.highlightStyle = HighlightStyle.doubleEqual,
+    this.extractMetadata = true,
     this.whitespaceMode = WhitespaceMode.normalize,
+    this.stripNewlines = false,
+    this.wrap = false,
+    this.wrapWidth = 80,
+    this.convertAsInline = false,
+    this.subSymbol = '',
+    this.supSymbol = '',
+    this.keepInlineImagesIn = const [],
     this.skipImages = false,
     this.skipLinks = false,
+    this.outputFormat = OutputFormat.markdown,
+    this.linkStyle = LinkStyle.inline,
+    this.urlEscapeStyle = UrlEscapeStyle.angle,
+    this.includeDocumentStructure = false,
+    this.extractImages = false,
+    this.maxImageSize = 5242880,
+    this.captureSvg = false,
+    this.inferDimensions = true,
+    this.maxDepth,
+    this.excludeSelectors = const [],
+    this.baseUrl,
+    this.tierStrategy = TierStrategy.auto,
     this.preserveTags = const [],
     this.stripTags = const [],
     this.preprocessing = const PreprocessingOptions(),
   });
 
   /// Converts the options to a JSON map.
-  Map<String, dynamic> toJson() => {
-    'heading_style': switch (headingStyle) {
-      HeadingStyle.atx => 'atx',
-      HeadingStyle.setext => 'underlined',
-    },
-    'list_indent_width': listIndentWidth,
-    'list_indent_type': listIndentType.name,
-    'bullets': bullets,
-    'strong_em_symbol': strongEmSymbol,
-    'escape_asterisks': escapeAsterisks,
-    'escape_underscores': escapeUnderscores,
-    'escape_misc': escapeMisc,
-    'newline_style': switch (newlineStyle) {
-      NewlineStyle.backslash => 'backslash',
-      NewlineStyle.trailingSpaces || NewlineStyle.preserve => 'spaces',
-    },
-    'code_block_style': switch (codeBlockStyle) {
-      CodeBlockStyle.tilde => 'tildes',
-      _ => codeBlockStyle.name,
-    },
-    'highlight_style': switch (highlightStyle) {
-      HighlightStyle.doubleEqual => 'double_equal',
-      HighlightStyle.htmlMark => 'html',
-      HighlightStyle.asterisk => 'bold',
-    },
-    'whitespace_mode': switch (whitespaceMode) {
-      WhitespaceMode.preserve => 'strict',
-      WhitespaceMode.normalize || WhitespaceMode.condense => 'normalized',
-    },
-    'skip_images': skipImages,
-    'skip_links': skipLinks,
-    'preserve_tags': preserveTags,
-    'strip_tags': stripTags,
-    'preprocessing': preprocessing.toJson(),
-  };
+  Map<String, dynamic> toJson() {
+    if (listIndentWidth < 0) {
+      throw RangeError.value(
+        listIndentWidth,
+        'listIndentWidth',
+        'Must be non-negative.',
+      );
+    }
+    if (wrapWidth < 0) {
+      throw RangeError.value(wrapWidth, 'wrapWidth', 'Must be non-negative.');
+    }
+    if (maxImageSize < 0 || (extractImages && maxImageSize == 0)) {
+      throw RangeError.value(
+        maxImageSize,
+        'maxImageSize',
+        extractImages
+            ? 'Must be positive when extractImages is enabled.'
+            : 'Must be non-negative.',
+      );
+    }
+    if (maxDepth != null && maxDepth! < 0) {
+      throw RangeError.value(maxDepth!, 'maxDepth', 'Must be non-negative.');
+    }
+
+    return {
+      'heading_style': switch (headingStyle) {
+        HeadingStyle.atx => 'atx',
+        HeadingStyle.setext => 'underlined',
+        HeadingStyle.atxClosed => 'atxclosed',
+      },
+      'list_indent_width': listIndentWidth,
+      'list_indent_type': listIndentType.name,
+      'bullets': bullets,
+      'strong_em_symbol': strongEmSymbol,
+      'escape_asterisks': escapeAsterisks,
+      'escape_underscores': escapeUnderscores,
+      'escape_misc': escapeMisc,
+      'escape_ascii': escapeAscii,
+      'code_language': codeLanguage,
+      'autolinks': autolinks,
+      'default_title': defaultTitle,
+      'br_in_tables': brInTables,
+      'compact_tables': compactTables,
+      'newline_style': switch (newlineStyle) {
+        NewlineStyle.backslash => 'backslash',
+        NewlineStyle.trailingSpaces || NewlineStyle.preserve => 'spaces',
+      },
+      'code_block_style': switch (codeBlockStyle) {
+        CodeBlockStyle.tilde => 'tildes',
+        _ => codeBlockStyle.name,
+      },
+      'highlight_style': switch (highlightStyle) {
+        HighlightStyle.doubleEqual => 'doubleequal',
+        HighlightStyle.htmlMark => 'html',
+        HighlightStyle.asterisk || HighlightStyle.bold => 'bold',
+        HighlightStyle.none => 'none',
+      },
+      'extract_metadata': extractMetadata,
+      'whitespace_mode': switch (whitespaceMode) {
+        WhitespaceMode.preserve => 'strict',
+        WhitespaceMode.normalize || WhitespaceMode.condense => 'normalized',
+      },
+      'strip_newlines': stripNewlines,
+      'wrap': wrap,
+      'wrap_width': wrapWidth,
+      'convert_as_inline': convertAsInline,
+      'sub_symbol': subSymbol,
+      'sup_symbol': supSymbol,
+      'keep_inline_images_in': keepInlineImagesIn,
+      'skip_images': skipImages,
+      'skip_links': skipLinks,
+      'output_format': outputFormat.name,
+      'link_style': linkStyle.name,
+      'url_escape_style': urlEscapeStyle.name,
+      'include_document_structure': includeDocumentStructure,
+      'extract_images': extractImages,
+      'max_image_size': maxImageSize,
+      'capture_svg': captureSvg,
+      'infer_dimensions': inferDimensions,
+      'max_depth': maxDepth,
+      'exclude_selectors': excludeSelectors,
+      if (baseUrl != null) 'base_url': baseUrl,
+      'tier_strategy': tierStrategy.name,
+      'preserve_tags': preserveTags,
+      'strip_tags': stripTags,
+      'preprocessing': preprocessing.toJson(),
+    };
+  }
 
   /// Converts the options to a JSON string.
   String toJsonString() => jsonEncode(toJson());
@@ -331,6 +538,99 @@ class MetadataConfig {
   }
 }
 
+/// Classification of a hyperlink destination.
+enum LinkType {
+  /// A fragment link within the same document.
+  anchor,
+
+  /// A relative or same-site link.
+  internal,
+
+  /// An HTTP or HTTPS link.
+  external,
+
+  /// A `mailto:` link.
+  email,
+
+  /// A `tel:` link.
+  phone,
+
+  /// Any other or unclassified link.
+  other,
+}
+
+/// Classification of an image source.
+enum ImageType {
+  /// An image embedded in a data URI.
+  dataUri,
+
+  /// An inline SVG element.
+  inlineSvg,
+
+  /// An image with an absolute HTTP or HTTPS URL.
+  external,
+
+  /// An image with a relative source path.
+  relative,
+}
+
+/// Direction of document text.
+enum TextDirection {
+  /// Left-to-right text.
+  leftToRight,
+
+  /// Right-to-left text.
+  rightToLeft,
+
+  /// Direction inferred from the content.
+  auto,
+}
+
+/// Format of an extracted structured-data entry.
+enum StructuredDataType {
+  /// JSON-LD data from an `application/ld+json` script.
+  jsonLd,
+
+  /// HTML microdata.
+  microdata,
+
+  /// RDFa attributes.
+  rdfa,
+}
+
+/// A structured-data block extracted from the document.
+class StructuredData {
+  /// Structured-data format.
+  final StructuredDataType dataType;
+
+  /// Original serialized content.
+  final String rawJson;
+
+  /// Detected schema type, such as `Article`.
+  final String? schemaType;
+
+  /// Creates a structured-data entry.
+  const StructuredData({
+    required this.dataType,
+    required this.rawJson,
+    this.schemaType,
+  });
+
+  /// Decodes [rawJson] as JSON.
+  dynamic get decoded => jsonDecode(rawJson);
+
+  /// Creates a structured-data entry from upstream JSON.
+  factory StructuredData.fromJson(Map<String, dynamic> json) => StructuredData(
+    dataType: switch (json['data_type']) {
+      'microdata' => StructuredDataType.microdata,
+      'rdfa' => StructuredDataType.rdfa,
+      _ => StructuredDataType.jsonLd,
+    },
+    rawJson: json['raw_json'] as String? ?? '',
+    schemaType: json['schema_type'] as String?,
+  );
+}
+
 /// Metadata about a link found in the document.
 class LinkMetadata {
   /// The destination URL of the link.
@@ -342,8 +642,17 @@ class LinkMetadata {
   /// The title attribute of the link.
   final String? title;
 
+  /// Classification of the link destination.
+  final LinkType linkType;
+
+  /// Values from the link's `rel` attribute.
+  final List<String> rel;
+
+  /// Additional HTML attributes from the link element.
+  final Map<String, String> attributes;
+
   /// Whether the link points to an external resource.
-  final bool isExternal;
+  bool get isExternal => linkType == LinkType.external;
 
   /// Whether the link is an image link.
   final bool isImage;
@@ -353,18 +662,35 @@ class LinkMetadata {
     this.href,
     this.text,
     this.title,
-    this.isExternal = false,
+    LinkType? linkType,
+    bool isExternal = false,
+    this.rel = const [],
+    this.attributes = const {},
     this.isImage = false,
-  });
+  }) : linkType = linkType ?? (isExternal ? LinkType.external : LinkType.other);
 
   /// Creates a [LinkMetadata] instance from a JSON map.
   factory LinkMetadata.fromJson(Map<String, dynamic> json) => LinkMetadata(
     href: json['href'] as String?,
     text: json['text'] as String?,
     title: json['title'] as String?,
-    isExternal:
-        json['link_type'] == 'external' ||
-        (json['is_external'] as bool? ?? false),
+    linkType: switch (json['link_type']) {
+      'anchor' => LinkType.anchor,
+      'internal' => LinkType.internal,
+      'external' => LinkType.external,
+      'email' => LinkType.email,
+      'phone' => LinkType.phone,
+      _ =>
+        (json['is_external'] as bool? ?? false)
+            ? LinkType.external
+            : LinkType.other,
+    },
+    rel: (json['rel'] as List<dynamic>? ?? const [])
+        .map((value) => value as String)
+        .toList(),
+    attributes: Map<String, String>.from(
+      json['attributes'] as Map? ?? const {},
+    ),
     isImage: json['is_image'] as bool? ?? false,
   );
 }
@@ -386,6 +712,12 @@ class ImageMetadata {
   /// The height of the image.
   final int? height;
 
+  /// Classification of the image source.
+  final ImageType imageType;
+
+  /// Additional HTML attributes from the image element.
+  final Map<String, String> attributes;
+
   /// Creates a new [ImageMetadata] instance.
   const ImageMetadata({
     this.src,
@@ -393,6 +725,8 @@ class ImageMetadata {
     this.title,
     this.width,
     this.height,
+    this.imageType = ImageType.relative,
+    this.attributes = const {},
   });
 
   /// Creates an [ImageMetadata] instance from a JSON map.
@@ -404,6 +738,15 @@ class ImageMetadata {
       title: json['title'] as String?,
       width: (dimensions?['width'] ?? json['width']) as int?,
       height: (dimensions?['height'] ?? json['height']) as int?,
+      imageType: switch (json['image_type']) {
+        'data_uri' => ImageType.dataUri,
+        'inline_svg' => ImageType.inlineSvg,
+        'external' => ImageType.external,
+        _ => ImageType.relative,
+      },
+      attributes: Map<String, String>.from(
+        json['attributes'] as Map? ?? const {},
+      ),
     );
   }
 }
@@ -419,14 +762,28 @@ class HeaderMetadata {
   /// The ID attribute of the header.
   final String? id;
 
+  /// Document tree depth of the heading element.
+  final int depth;
+
+  /// Byte offset of the heading in the original HTML.
+  final int htmlOffset;
+
   /// Creates a new [HeaderMetadata] instance.
-  const HeaderMetadata({required this.level, required this.text, this.id});
+  const HeaderMetadata({
+    required this.level,
+    required this.text,
+    this.id,
+    this.depth = 0,
+    this.htmlOffset = 0,
+  });
 
   /// Creates a [HeaderMetadata] instance from a JSON map.
   factory HeaderMetadata.fromJson(Map<String, dynamic> json) => HeaderMetadata(
     level: json['level'] as int,
     text: json['text'] as String,
     id: json['id'] as String?,
+    depth: json['depth'] as int? ?? 0,
+    htmlOffset: json['html_offset'] as int? ?? 0,
   );
 }
 
@@ -441,6 +798,30 @@ class DocumentMetadata {
   /// List of keywords extracted from metadata.
   final List<String>? keywords;
 
+  /// Document author from metadata.
+  final String? author;
+
+  /// Canonical URL declared by the document.
+  final String? canonicalUrl;
+
+  /// Base URL declared by a `<base>` element.
+  final String? baseHref;
+
+  /// Document language from the root `lang` attribute.
+  final String? language;
+
+  /// Document text direction.
+  final TextDirection? textDirection;
+
+  /// Open Graph metadata keyed without the `og:` prefix.
+  final Map<String, String> openGraph;
+
+  /// Twitter Card metadata keyed without the `twitter:` prefix.
+  final Map<String, String> twitterCard;
+
+  /// Additional named metadata entries.
+  final Map<String, String> metaTags;
+
   /// List of headers found in the document.
   final List<HeaderMetadata>? headers;
 
@@ -453,20 +834,42 @@ class DocumentMetadata {
   /// Structured data (JSON-LD) found in the document.
   final List<Map<String, dynamic>>? structuredData;
 
+  /// Structured data including its format and original JSON.
+  final List<StructuredData>? structuredDataEntries;
+
   /// Creates a new [DocumentMetadata] instance.
   const DocumentMetadata({
     this.title,
     this.description,
     this.keywords,
+    this.author,
+    this.canonicalUrl,
+    this.baseHref,
+    this.language,
+    this.textDirection,
+    this.openGraph = const {},
+    this.twitterCard = const {},
+    this.metaTags = const {},
     this.headers,
     this.links,
     this.images,
     this.structuredData,
+    this.structuredDataEntries,
   });
 
   /// Creates a [DocumentMetadata] instance from a JSON map.
   factory DocumentMetadata.fromJson(Map<String, dynamic> json) {
     final document = json['document'] as Map<String, dynamic>? ?? json;
+
+    Map<String, String> parseStringMap(dynamic data) =>
+        data is Map ? Map<String, String>.from(data) : const {};
+
+    final structuredDataEntries = (json['structured_data'] as List<dynamic>?)
+        ?.whereType<Map>()
+        .map(
+          (entry) => StructuredData.fromJson(Map<String, dynamic>.from(entry)),
+        )
+        .toList();
 
     List<Map<String, dynamic>>? parseStructuredData(dynamic data) {
       if (data == null) return null;
@@ -507,6 +910,19 @@ class DocumentMetadata {
       keywords: (document['keywords'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      author: document['author'] as String?,
+      canonicalUrl: document['canonical_url'] as String?,
+      baseHref: document['base_href'] as String?,
+      language: document['language'] as String?,
+      textDirection: switch (document['text_direction']) {
+        'ltr' => TextDirection.leftToRight,
+        'rtl' => TextDirection.rightToLeft,
+        'auto' => TextDirection.auto,
+        _ => null,
+      },
+      openGraph: parseStringMap(document['open_graph']),
+      twitterCard: parseStringMap(document['twitter_card']),
+      metaTags: parseStringMap(document['meta_tags']),
       headers: (json['headers'] as List<dynamic>?)
           ?.map((e) => HeaderMetadata.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -517,6 +933,7 @@ class DocumentMetadata {
           ?.map((e) => ImageMetadata.fromJson(e as Map<String, dynamic>))
           .toList(),
       structuredData: parseStructuredData(json['structured_data']),
+      structuredDataEntries: structuredDataEntries,
     );
   }
 }

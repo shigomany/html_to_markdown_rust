@@ -80,6 +80,33 @@ fn ffi_string(action: impl FnOnce() -> Result<String, ()>) -> *mut c_char {
         .map_or(std::ptr::null_mut(), CString::into_raw)
 }
 
+fn image_payload(
+    images: &[html_to_markdown_rs::InlineImage],
+    prefix: Option<&str>,
+) -> Vec<serde_json::Value> {
+    let prefix = prefix.filter(|value| !value.trim().is_empty());
+    images
+        .iter()
+        .map(|img| {
+            let filename = img.filename.as_ref().map(|name| {
+                match (prefix, name.strip_prefix("embedded_image")) {
+                    (Some(prefix), Some(suffix)) => format!("{prefix}{suffix}"),
+                    _ => name.clone(),
+                }
+            });
+            serde_json::json!({
+                "data": STANDARD.encode(&img.data),
+                "format": img.format.to_string(),
+                "filename": filename,
+                "description": img.description,
+                "dimensions": img.dimensions,
+                "source": img.source.to_string(),
+                "attributes": img.attributes,
+            })
+        })
+        .collect()
+}
+
 /// Convert an HTML buffer containing `len` UTF-8 bytes.
 ///
 /// # Safety
@@ -222,31 +249,7 @@ pub unsafe extern "C" fn htm_convert_with_inline_images(
         options.capture_svg = config.capture_svg;
         options.infer_dimensions = config.infer_dimensions;
         let result = convert(html, options).map_err(|_| ())?;
-        let prefix = config
-            .filename_prefix
-            .as_deref()
-            .filter(|value| !value.trim().is_empty());
-        let images: Vec<_> = result
-            .images
-            .iter()
-            .map(|img| {
-                let filename = img.filename.as_ref().map(|name| {
-                    match (prefix, name.strip_prefix("embedded_image")) {
-                        (Some(prefix), Some(suffix)) => format!("{prefix}{suffix}"),
-                        _ => name.clone(),
-                    }
-                });
-                serde_json::json!({
-                    "data": STANDARD.encode(&img.data),
-                    "format": img.format.to_string(),
-                    "filename": filename,
-                    "description": img.description,
-                    "dimensions": img.dimensions,
-                    "source": img.source.to_string(),
-                    "attributes": img.attributes,
-                })
-            })
-            .collect();
+        let images = image_payload(&result.images, config.filename_prefix.as_deref());
         let warnings: Vec<_> = result
             .warnings
             .iter()
@@ -268,6 +271,55 @@ pub unsafe extern "C" fn htm_convert_with_inline_images(
             "warnings": warnings,
         })
         .to_string())
+    })
+}
+
+/// Convert HTML into a complete structured JSON result.
+///
+/// Optional image configuration enables extraction and overrides image options.
+/// Document structure and tables are collected only when requested in options.
+///
+/// # Safety
+/// `input` must reference `len` readable bytes; non-null JSON must be NUL-terminated.
+/// Free the result with `htm_free_string`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn htm_convert_full(
+    input: *const c_char,
+    len: usize,
+    options_json: *const c_char,
+    metadata_config_json: *const c_char,
+    image_config_json: *const c_char,
+) -> *mut c_char {
+    ffi_string(|| {
+        let html = unsafe { input_html(input, len)? };
+        let mut options = unsafe { conversion_options(options_json)? };
+        let selection: MetadataSelection = unsafe { json_config(metadata_config_json)? };
+        if selection.max_structured_data_size > 1_000_000 {
+            return Err(());
+        }
+        let image_config = if image_config_json.is_null() {
+            None
+        } else {
+            let update: InlineImageConfigUpdate = unsafe { json_config(image_config_json)? };
+            let config = InlineImageConfig::from_update(update);
+            options.extract_images = true;
+            options.max_image_size = config.max_decoded_size_bytes;
+            options.capture_svg = config.capture_svg;
+            options.infer_dimensions = config.infer_dimensions;
+            Some(config)
+        };
+        let wants_metadata = options.extract_metadata;
+        let mut result = convert(html, options).map_err(|_| ())?;
+        selection.filter(&mut result.metadata);
+        let mut output = serde_json::to_value(&result).map_err(|_| ())?;
+        if !wants_metadata {
+            output["metadata"] = serde_json::Value::Null;
+        }
+        let prefix = image_config
+            .as_ref()
+            .and_then(|config| config.filename_prefix.as_deref());
+        output["inline_images"] = serde_json::Value::Array(image_payload(&result.images, prefix));
+        Ok(output.to_string())
     })
 }
 
@@ -408,5 +460,91 @@ mod tests {
             assert!(parsed["markdown"].as_str().unwrap().contains("# Hello"));
             htm_free_string(result);
         }
+    }
+
+    #[test]
+    fn test_full_result_keeps_unicode_and_optional_payloads() {
+        let html = "<title>Заголовок</title><p>世界🌍</p><table><tr><td>A</td></tr></table>";
+        let c_html = CString::new(html).unwrap();
+        let options =
+            CString::new(r#"{"output_format":"plain","include_document_structure":true}"#).unwrap();
+        let metadata = CString::new(r#"{"extract_title":false}"#).unwrap();
+        let result = unsafe {
+            htm_convert_full(
+                c_html.as_ptr(),
+                html.len(),
+                options.as_ptr(),
+                metadata.as_ptr(),
+                std::ptr::null(),
+            )
+        };
+        assert!(!result.is_null());
+        let text = unsafe { CStr::from_ptr(result) }
+            .to_str()
+            .unwrap()
+            .to_owned();
+        unsafe { htm_free_string(result) };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed["content"].as_str().unwrap().contains("世界🌍"));
+        assert!(parsed["metadata"]["document"]["title"].is_null());
+        assert!(!parsed["document"]["nodes"].as_array().unwrap().is_empty());
+        assert_eq!(parsed["tables"].as_array().unwrap().len(), 1);
+        assert!(parsed["inline_images"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_full_result_rejects_invalid_configuration_and_input() {
+        let html = CString::new("<p>Text</p>").unwrap();
+        let invalid = CString::new("{invalid json}").unwrap();
+        let excessive = CString::new(r#"{"max_structured_data_size":1000001}"#).unwrap();
+        for metadata in [invalid.as_ptr(), excessive.as_ptr()] {
+            let result = unsafe {
+                htm_convert_full(
+                    html.as_ptr(),
+                    html.as_bytes().len(),
+                    std::ptr::null(),
+                    metadata,
+                    std::ptr::null(),
+                )
+            };
+            assert!(result.is_null());
+        }
+        let result = unsafe {
+            htm_convert_full(
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+            )
+        };
+        assert!(result.is_null());
+    }
+
+    #[test]
+    fn test_full_result_serializes_images_only_as_base64() {
+        let html = CString::new("<svg><rect width=\"1\" height=\"1\"/></svg>").unwrap();
+        let config = CString::new(r#"{"capture_svg":true,"filename_prefix":"asset_"}"#).unwrap();
+        let result = unsafe {
+            htm_convert_full(
+                html.as_ptr(),
+                html.as_bytes().len(),
+                std::ptr::null(),
+                std::ptr::null(),
+                config.as_ptr(),
+            )
+        };
+        assert!(!result.is_null());
+        let text = unsafe { CStr::from_ptr(result) }
+            .to_str()
+            .unwrap()
+            .to_owned();
+        unsafe { htm_free_string(result) };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed.get("images").is_none());
+        let image = &parsed["inline_images"][0];
+        assert!(image["filename"].as_str().unwrap().starts_with("asset_"));
+        let bytes = STANDARD.decode(image["data"].as_str().unwrap()).unwrap();
+        assert!(String::from_utf8(bytes).unwrap().contains("<rect"));
     }
 }

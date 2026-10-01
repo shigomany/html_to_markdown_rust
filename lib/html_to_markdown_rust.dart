@@ -1,7 +1,7 @@
-/// HTML to Markdown Converter (Rust-powered)
+/// HTML converter with Markdown, Djot, and plain-text output (Rust-powered).
 ///
-/// A high-performance Dart package that converts HTML to Markdown using Rust's
-/// html-to-markdown-rs library via FFI (Foreign Function Interface).
+/// Converts HTML with Rust's html-to-markdown-rs library via FFI, with optional
+/// typed document structure, tables, metadata, embedded images, and warnings.
 ///
 /// ## Usage
 ///
@@ -24,6 +24,18 @@
 ///   skipImages: true,
 /// );
 /// final markdown = htmlToMarkdown(html, options);
+/// ```
+///
+/// ## With Structured Results
+///
+/// ```dart
+/// final result = convertHtml(
+///   html,
+///   options: const ConversionOptions(includeDocumentStructure: true),
+/// );
+/// print(result.content);
+/// print(result.tables.length);
+/// print(result.document?.nodes.length);
 /// ```
 ///
 /// ## With Metadata Extraction
@@ -54,6 +66,7 @@ library;
 
 export 'src/html_to_markdown.dart'
     show
+        convertHtml,
         htmlToMarkdown,
         htmlToMarkdownWithMetadata,
         htmlToMarkdownWithInlineImages;
@@ -65,11 +78,20 @@ export 'src/conversion_options.dart'
         LinkMetadata,
         ImageMetadata,
         HeaderMetadata,
+        StructuredData,
+        StructuredDataType,
+        TextDirection,
+        LinkType,
+        ImageType,
         HeadingStyle,
         ListIndentType,
         CodeBlockStyle,
         NewlineStyle,
         HighlightStyle,
+        OutputFormat,
+        LinkStyle,
+        UrlEscapeStyle,
+        TierStrategy,
         WhitespaceMode,
         PreprocessingPreset,
         PreprocessingOptions,
@@ -80,3 +102,5 @@ export 'src/conversion_options.dart'
         InlineImageSource,
         InlineImageWarning,
         InlineImagesResult;
+
+export 'src/conversion_result.dart';

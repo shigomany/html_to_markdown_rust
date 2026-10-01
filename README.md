@@ -5,8 +5,9 @@
 
 Turn HTML into clean Markdown from Dart and Flutter with the mature
 [`html-to-markdown-rs`](https://crates.io/crates/html-to-markdown-rs) converter.
-The package adds a small, null-safe Dart API over the Rust engine and can also
-extract document metadata or embedded images in the same pass.
+The package adds a small, null-safe Dart API over the Rust engine. A single
+conversion can return Markdown, Djot, or plain text together with a typed
+document tree, tables, metadata, embedded images, and processing warnings.
 
 Use it for content importers, offline readers, note-taking apps, AI/RAG
 pipelines, CMS migrations, and any native app that needs predictable Markdown
@@ -20,6 +21,7 @@ without implementing an HTML parser in Dart.
   handling through `ConversionOptions`.
 - Extracts title, description, keywords, headings, links, images, and JSON-LD.
 - Extracts data-URI and inline SVG images with size limits and warnings.
+- Preserves typed document nodes and table spans in structured output.
 - Builds the bundled Rust library automatically with Dart native assets.
 
 ## Requirements
@@ -36,7 +38,7 @@ macOS, so verify the build in your own target environment.
 
 ```yaml
 dependencies:
-  html_to_markdown_rust: ^0.2.0
+  html_to_markdown_rust: ^0.3.0
 ```
 
 Then run `dart pub get` or `flutter pub get`. The Rust library is compiled by
@@ -64,6 +66,55 @@ void main() {
 fails. In Flutter, move large conversions off the UI isolate, for example with
 `Isolate.run(() => htmlToMarkdown(html))` from `dart:isolate`.
 
+## One-pass structured conversion
+
+Use `convertHtml` when you need converted text and extracted data together:
+
+```dart
+final result = convertHtml(
+  html,
+  options: const ConversionOptions(
+    outputFormat: OutputFormat.markdown,
+    includeDocumentStructure: true,
+    extractMetadata: true,
+    extractImages: true,
+    captureSvg: true,
+  ),
+  metadataConfig: const MetadataConfig(),
+  imageConfig: const InlineImageConfig(
+    filenamePrefix: 'article_',
+    captureSvg: true,
+  ),
+);
+
+print(result.content);
+print(result.document?.nodes.length);
+print(result.tables.length);
+print(result.metadata?.title);
+print(result.inlineImages.length);
+
+for (final warning in result.warnings) {
+  print('${warning.kind}: ${warning.message}');
+}
+```
+
+Set `includeDocumentStructure: true` to collect `DocumentNode` values and
+tables. Each table uses a sparse `TableGrid`: origin cells carry zero-based
+positions plus `rowSpan` and `colSpan`. Inline `TextAnnotation.start` and
+`.end` values are UTF-8 byte offsets within that node's text, rather than Dart
+string indices. The current `html-to-markdown-rs 3.15.1` structure collector
+leaves annotation lists empty, and node text can include inline Markdown.
+Plain-text input can take an upstream fast path that returns a `null` document
+in any output format, even when structure was requested.
+
+Metadata includes document identity fields, language and direction, Open Graph
+and Twitter Card values, headers, classified links and images, custom meta
+tags, and structured-data entries. Inline images and non-fatal
+`ProcessingWarning` diagnostics are returned alongside the same conversion.
+SVG dimensions are optional; automatic dimension inference applies to raster
+images. When `imageConfig` is supplied, its image settings override the
+corresponding values in `ConversionOptions`.
+
 ## Configure the output
 
 ```dart
@@ -86,6 +137,11 @@ final markdown = htmlToMarkdown(
 `ConversionOptions` also supports list indentation, emphasis symbols, escaping,
 newline and highlight styles, skipping links or images, and stripping selected
 tags while keeping their content.
+
+It can also select `OutputFormat.markdown`, `OutputFormat.djot`, or
+`OutputFormat.plain`, resolve relative destinations with `baseUrl`, emit
+numbered reference links with `LinkStyle.reference`, remove matching elements
+with `excludeSelectors`, and render tighter tables with `compactTables`.
 
 ## Convert and collect metadata
 
@@ -136,9 +192,15 @@ image limit is 5 MiB.
 
 | API | Result |
 | --- | --- |
+| `convertHtml(...)` | Unified `HtmlConversionResult` with converted content and optional structured data |
 | `htmlToMarkdown(html, [options])` | Markdown `String` |
 | `htmlToMarkdownWithMetadata(...)` | `ConversionResult` with Markdown and optional `DocumentMetadata` |
 | `htmlToMarkdownWithInlineImages(...)` | `InlineImagesResult` with Markdown, images, and warnings |
+
+The three `htmlToMarkdown...` functions remain available for existing callers.
+All conversion APIs are synchronous; use `Isolate.run` for large inputs in
+Flutter when conversion must not block the UI isolate. See
+[`example/structured.dart`](example/structured.dart) for an end-to-end example.
 
 ## Benchmarks
 

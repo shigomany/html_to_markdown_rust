@@ -4,6 +4,62 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:html_to_markdown_rust/src/bindings.g.dart';
 import 'package:html_to_markdown_rust/src/conversion_options.dart';
+import 'package:html_to_markdown_rust/src/conversion_result.dart';
+
+/// Converts HTML into text and optional structured extraction results.
+///
+/// [options] selects the output format and enables document structure, tables,
+/// metadata, or inline images. Tables require `includeDocumentStructure: true`.
+/// Passing [imageConfig] enables inline-image extraction and overrides the
+/// corresponding image options. [metadataConfig] filters extracted metadata;
+/// it does not enable metadata when `extractMetadata` is false.
+///
+/// The function is synchronous; use an isolate for large inputs in Flutter.
+HtmlConversionResult convertHtml(
+  String html, {
+  ConversionOptions? options,
+  MetadataConfig? metadataConfig,
+  InlineImageConfig? imageConfig,
+}) {
+  final optionsJson = options == null ? null : jsonEncode(options.toJson());
+  final metadataJson = metadataConfig == null
+      ? null
+      : jsonEncode(metadataConfig.toJson());
+  final imagesJson = imageConfig == null
+      ? null
+      : jsonEncode(imageConfig.toJson());
+  final htmlAllocation = _encodeHtml(html);
+  final htmlPointer = htmlAllocation.pointer;
+  Pointer<Char> optionsPointer = nullptr;
+  Pointer<Char> metadataPointer = nullptr;
+  Pointer<Char> imagesPointer = nullptr;
+  Pointer<Char> resultPointer = nullptr;
+  try {
+    optionsPointer = optionsJson?.toNativeUtf8().cast<Char>() ?? nullptr;
+    metadataPointer = metadataJson?.toNativeUtf8().cast<Char>() ?? nullptr;
+    imagesPointer = imagesJson?.toNativeUtf8().cast<Char>() ?? nullptr;
+    resultPointer = htm_convert_full(
+      htmlPointer,
+      htmlAllocation.length,
+      optionsPointer,
+      metadataPointer,
+      imagesPointer,
+    );
+    if (resultPointer == nullptr) {
+      throw Exception('Failed to convert HTML');
+    }
+    final json = jsonDecode(
+      resultPointer.cast<Utf8>().toDartString(),
+    ) as Map<String, dynamic>;
+    return HtmlConversionResult.fromJson(json);
+  } finally {
+    if (resultPointer != nullptr) htm_free_string(resultPointer);
+    if (optionsPointer != nullptr) calloc.free(optionsPointer);
+    if (metadataPointer != nullptr) calloc.free(metadataPointer);
+    if (imagesPointer != nullptr) calloc.free(imagesPointer);
+    calloc.free(htmlPointer);
+  }
+}
 
 ({Pointer<Char> pointer, int length}) _encodeHtml(String html) {
   final bytes = utf8.encode(html);
