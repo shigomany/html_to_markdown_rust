@@ -1,231 +1,151 @@
-# HTML to Markdown Rust
+# html_to_markdown_rust
 
-A high-performance Dart package that converts HTML to Markdown using Rust's [`html-to-markdown-rs`](https://crates.io/crates/html-to-markdown-rs) library via FFI (Foreign Function Interface).
+[![pub package](https://img.shields.io/pub/v/html_to_markdown_rust.svg)](https://pub.dev/packages/html_to_markdown_rust)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-This package provides fast, memory-efficient HTML to Markdown conversion with support for complex HTML structures including headings, paragraphs, lists, links, images, tables, and more.
+Turn HTML into clean Markdown from Dart and Flutter with the mature
+[`html-to-markdown-rs`](https://crates.io/crates/html-to-markdown-rs) converter.
+The package adds a small, null-safe Dart API over the Rust engine and can also
+extract document metadata or embedded images in the same pass.
 
-## Features
+Use it for content importers, offline readers, note-taking apps, AI/RAG
+pipelines, CMS migrations, and any native app that needs predictable Markdown
+without implementing an HTML parser in Dart.
 
-- **High Performance**: Rust-powered conversion for optimal speed
-- **Comprehensive HTML Support**: Handles most common HTML elements
-  - Headings (`<h1>` through `<h6>`)
-  - Paragraphs (`<p>`)
-  - Lists (ordered and unordered)
-  - Links (`<a>`) with automatic Markdown syntax
-  - Images (`<img>`) with alt text
-  - Bold (`<strong>`, `<b>`) and italic (`<em>`, `<i>`)
-  - Code (`<code>`, `<pre>`)
-  - Blockquotes (`<blockquote>`)
-  - Tables (`<table>`, `<tr>`, `<td>`, `<th>`)
-  - Horizontal rules (`<hr>`)
-  - Line breaks (`<br>`)
-- **Memory Safe**: Proper memory management with automatic cleanup
-- **Null Safe Dart API**: Follows Dart's null safety principles
-- **Cross Platform**: Works on macOS, Linux, and Windows
+## Highlights
+
+- Converts headings, lists, links, images, tables, blockquotes, code, and other
+  common HTML structures.
+- Controls heading, list, code-block, newline, whitespace, escaping, and tag
+  handling through `ConversionOptions`.
+- Extracts title, description, keywords, headings, links, images, and JSON-LD.
+- Extracts data-URI and inline SVG images with size limits and warnings.
+- Builds the bundled Rust library automatically with Dart native assets.
 
 ## Requirements
 
-- **Dart SDK**: `^3.10.1` or higher
-- **Rust toolchain**: Required for building the native library (automatically handled by `native_toolchain_rust`)
+- Dart SDK `^3.13.0` (Flutter `3.47.5` bundles Dart `3.13.4`)
+- Rust `1.99.0`, installed and available to the build process
+- A native target: Android, iOS, macOS, Linux, or Windows
+
+Web is not supported because the package uses `dart:ffi`. The native tooling is
+configured for the targets above. Development validation is performed on
+macOS, so verify the build in your own target environment.
 
 ## Installation
 
-Add this to your package's `pubspec.yaml`:
-
 ```yaml
 dependencies:
-  html_to_markdown_rust: ^0.1.2
+  html_to_markdown_rust: ^0.2.0
 ```
 
-Then run:
+Then run `dart pub get` or `flutter pub get`. The Rust library is compiled by
+the native-assets build hook when your application builds; no separate code
+generation command is required.
 
-```bash
-dart pub get
-```
-
-## Building
-
-The native Rust library is built automatically when you run your Dart application. The `native_toolchain_rust` package handles this process.
-
-If you need to rebuild the native library manually:
-
-```bash
-cd rust
-cargo build --release
-```
-
-## Usage
-
-### Basic Conversion
-
-Convert a simple HTML string to Markdown:
+## Quick start
 
 ```dart
 import 'package:html_to_markdown_rust/html_to_markdown_rust.dart';
 
 void main() {
-  final html = '<h1>Hello World</h1><p>This is a test.</p>';
-  final markdown = htmlToMarkdown(html);
-  print(markdown);
-  // Output: # Hello World
-  //         This is a test.
-}
-```
-
-### Complex HTML
-
-Convert more complex HTML structures:
-
-```dart
-void main() {
-  final html = '''
-    <div class="container">
-      <h2>Features</h2>
-      <ul>
-        <li>Fast conversion</li>
-        <li>Memory efficient</li>
-        <li>Easy to use</li>
-      </ul>
-      <p>Check out our <a href="https://example.com">website</a>!</p>
-    </div>
+  const html = '''
+    <h1>Release notes</h1>
+    <p>Now with <strong>native</strong> conversion.</p>
+    <ul><li>Fast setup</li><li>Configurable output</li></ul>
   ''';
+
   final markdown = htmlToMarkdown(html);
   print(markdown);
-  // Output: ## Features
-  //         - Fast conversion
-  //         - Memory efficient
-  //         - Easy to use
-  //         Check out our [website](https://example.com)!
 }
 ```
 
-### Error Handling
+`htmlToMarkdown` is synchronous and throws an `Exception` when conversion
+fails. In Flutter, move large conversions off the UI isolate, for example with
+`Isolate.run(() => htmlToMarkdown(html))` from `dart:isolate`.
 
-The conversion function throws an exception if the conversion fails:
+## Configure the output
 
 ```dart
-void main() {
-  try {
-    final markdown = htmlToMarkdown(html);
-    print(markdown);
-  } on Exception catch (e) {
-    print('Conversion failed: $e');
-  }
+final markdown = htmlToMarkdown(
+  html,
+  const ConversionOptions(
+    headingStyle: HeadingStyle.setext,
+    bullets: '*',
+    codeBlockStyle: CodeBlockStyle.tilde,
+    whitespaceMode: WhitespaceMode.condense,
+    preserveTags: ['details', 'summary'],
+    preprocessing: PreprocessingOptions(
+      enabled: true,
+      preset: PreprocessingPreset.standard,
+    ),
+  ),
+);
+```
+
+`ConversionOptions` also supports list indentation, emphasis symbols, escaping,
+newline and highlight styles, skipping links or images, and stripping selected
+tags while keeping their content.
+
+## Convert and collect metadata
+
+```dart
+final result = htmlToMarkdownWithMetadata(
+  html,
+  options: const ConversionOptions(skipImages: true),
+  metadataConfig: const MetadataConfig(
+    extractStructuredData: true,
+  ),
+);
+
+print(result.markdown);
+print(result.metadata?.title);
+print(result.metadata?.links?.map((link) => link.href));
+```
+
+Use `MetadataConfig` to select document fields, headings, links, images, and
+structured data. `maxStructuredDataSize` limits accepted JSON-LD payloads to
+`0` through `1,000,000` bytes, including the Rust engine's safety ceiling.
+
+## Convert and extract inline images
+
+```dart
+final result = htmlToMarkdownWithInlineImages(
+  html,
+  imageConfig: const InlineImageConfig(
+    maxDecodedSizeBytes: 10 * 1024 * 1024,
+    filenamePrefix: 'article',
+    captureSvg: true,
+    inferDimensions: true,
+  ),
+);
+
+for (final image in result.inlineImages) {
+  print('${image.filename}: ${image.format}, ${image.dataBytes.length} bytes');
+}
+for (final warning in result.warnings) {
+  print(warning.message);
 }
 ```
 
-## API Reference
+The result contains Markdown plus extracted bytes, format, optional dimensions,
+source, attributes, and non-fatal extraction warnings. The default decoded
+image limit is 5 MiB.
 
-### `htmlToMarkdown(String html)`
+## API overview
 
-Converts HTML string to Markdown format.
+| API | Result |
+| --- | --- |
+| `htmlToMarkdown(html, [options])` | Markdown `String` |
+| `htmlToMarkdownWithMetadata(...)` | `ConversionResult` with Markdown and optional `DocumentMetadata` |
+| `htmlToMarkdownWithInlineImages(...)` | `InlineImagesResult` with Markdown, images, and warnings |
 
-**Parameters:**
-- `html` - The HTML string to convert
+## Benchmarks
 
-**Returns:**
-- `String` - The converted Markdown
-
-**Throws:**
-- `Exception` - If the conversion fails
-
-## How it Works
-
-This package uses Dart's FFI (Foreign Function Interface) to call Rust functions that perform the HTML to Markdown conversion:
-
-1. The Dart function `htmlToMarkdown()` converts the input HTML string to a UTF-8 C string
-2. The Rust function `htm_convert()` processes the HTML using the `html-to-markdown-rs` library
-3. The result is returned as a C string pointer
-4. Dart converts the result back to a Dart String
-5. The Rust memory is freed using `htm_free_string()`
-
-## Architecture
-
-```
-Dart Layer (lib/)
-├── html_to_markdown_rust.dart  # Public API entry point
-├── src/
-│   ├── html_to_markdown.dart   # Conversion logic with FFI
-│   ├── codec.dart               # Codec utilities
-│   └── bindings.g.dart          # Generated FFI bindings
-
-Rust Layer (rust/)
-├── src/
-│   └── lib.rs                   # FFI interface functions
-├── Cargo.toml                   # Rust dependencies
-└── build.rs                     # Build configuration
-```
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-dart test
-
-# Run with coverage
-dart test --coverage=coverage
-```
-
-### Regenerating FFI Bindings
-
-If you modify the Rust API, regenerate the bindings:
-
-```bash
-dart run ffigen
-```
-
-### Code Generation
-
-After modifying the Rust code, rebuild the native library:
-
-```bash
-# The native library will be built automatically when you run your app
-# or you can manually trigger it with:
-dart run build_runner build
-```
-
-## Performance
-
-This package is optimized for performance:
-- Conversion happens in Rust for maximum speed
-- Minimal memory overhead with proper cleanup
-- Efficient string handling via FFI
-
-Benchmarks (on typical HTML documents):
-- Simple documents: < 1ms
-- Medium documents (10KB): ~2-5ms
-- Large documents (100KB): ~10-20ms
-
-### Benchmark Results
-
-We've benchmarked `html_to_markdown_rust` against the popular `html2md` package:
-
-```
-┌─────────────────────────┬──────────┬──────────────────┬──────────────────┬───────────┐
-│ Test Case               │ HTML Size│ html_to_markdown_│                  │           │
-│                         │ (bytes)  │      rust        │     html2md      │  Speedup  │
-│                         │          │ (μs/op)          │ (μs/op)          │           │
-├─────────────────────────┼──────────┼──────────────────┼──────────────────┼───────────┤
-│ Simple HTML             │ 66 B     │ 26.39 μs         │ 104.61 μs        │ 3.96x ↑   │
-│ Complex HTML            │ 1.2 KB   │ 343.92 μs        │ 1.51 ms          │ 4.38x ↑   │
-│ Nested HTML             │ 978 B    │ 288.24 μs        │ 1.08 ms          │ 3.76x ↑   │
-│ Large HTML              │ 37.1 KB  │ 8.66 ms          │ 132.53 ms        │ 15.31x ↑  │
-└─────────────────────────┴──────────┴──────────────────┴──────────────────┴───────────┘
-
-📊 Summary Statistics:
-─────────────────────────────────────────────────────────────────────
-Average Speedup:              6.85x faster
-Geometric Mean Speedup:       5.62x faster
-Total HTML Size Benchmarked:  39.3 KB
-Number of Benchmarks:         4
-─────────────────────────────────────────────────────────────────────
-```
-
-### Running Benchmarks
-
-You can run the benchmarks yourself to see the performance on your system:
+The repository includes a reproducible comparison with the pure-Dart
+[`html2md`](https://pub.dev/packages/html2md) package. Results depend on the
+machine, toolchain, build mode, and system load, so the documentation does not
+publish a fixed speedup. Run the suite on the environment that matters to you:
 
 ```bash
 cd benchmark
@@ -233,58 +153,33 @@ dart pub get
 dart run main.dart
 ```
 
-For more details, see the [benchmark/README.md](benchmark/README.md) file.
+See [benchmark/README.md](benchmark/README.md) for the cases and reporting
+method.
 
-## Limitations
+## Migrating to 0.2.0
 
-- The conversion follows the behavior of the underlying `html-to-markdown-rs` crate
-- Some advanced HTML features may not be fully supported
-- Custom HTML tags are typically removed during conversion
-- JavaScript and CSS are not processed (as expected for Markdown output)
+Version `0.2.0` updates `html-to-markdown-rs` to `3.x`. Review converted output
+when upgrading because the engine's Markdown formatting can change. Legacy
+preprocessing options are deprecated: the upstream engine now controls HTML
+sanitization. Metadata extraction retains the upstream 1,000,000-byte structured-data
+safety cap by default.
 
-## Troubleshooting
+## Development
 
-### Build Errors
+```bash
+dart pub get
+dart test
+dart analyze
+```
 
-If you encounter build errors related to Rust:
+When the Rust FFI surface changes, regenerate the Dart bindings with:
 
-1. Ensure Rust is installed: `rustc --version`
-2. Update the Rust toolchain: `rustup update`
-3. Clean and rebuild: `dart clean && dart pub get`
+```bash
+dart run ffigen
+```
 
-### Runtime Errors
-
-If conversion fails:
-- Ensure the input is valid UTF-8 encoded HTML
-- Check for memory issues with very large HTML documents
-- Review the error message for specific failure causes
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+The generated `lib/src/bindings.g.dart` file should not be edited by hand.
 
 ## License
 
-This package is released under the MIT License. See the LICENSE file for details.
-
-## Credits
-
-- Built with [html-to-markdown-rs](https://crates.io/crates/html-to-markdown-rs) Rust crate
-- Uses Dart's [FFI](https://dart.dev/guides/libraries/c-interop) for native interop
-- Hooks for build process: [hooks](https://dart.dev/tools/hooks)
-- Native library building handled by [native_toolchain_rust](https://pub.dev/packages/native_toolchain_rust)
-
-## Support
-
-For issues, questions, or contributions:
-- GitHub Issues: https://github.com/shigomany/html_to_markdown_rust/issues
-- Documentation: https://github.com/shigomany/html_to_markdown_rust
+[MIT](LICENSE)
